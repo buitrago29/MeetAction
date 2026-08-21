@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meet_action/core/usecases/usecase.dart';
 import 'package:meet_action/features/recording/domain/usecases/pause_recording.dart';
@@ -12,6 +13,8 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
   final PauseRecording pauseRecording;
   final ResumeRecording resumeRecording;
   final StopRecording stopRecording;
+  Timer? _timer;
+  int _secondsElapsed = 0;
 
   RecordingBloc({
     required this.startRecording,
@@ -33,7 +36,15 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     final result = await startRecording(StartRecordingParams(path: event.path));
     result.fold(
       (failure) => emit(RecordingFailure(failure.message)),
-      (_) => emit(RecordingInProgress(duration: Duration.zero, path: event.path)),
+      (_) {
+        _secondsElapsed = 0;
+        _timer?.cancel();
+        _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+          _secondsElapsed++;
+          add(RecordingDurationTickEvent(Duration(seconds: _secondsElapsed)));
+        });
+        emit(RecordingInProgress(duration: Duration.zero, path: event.path));
+      },
     );
   }
 
@@ -56,7 +67,10 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       final result = await pauseRecording(const NoParams());
       result.fold(
         (failure) => emit(RecordingFailure(failure.message)),
-        (_) => emit(RecordingPaused(duration: current.duration, path: current.path)),
+        (_) {
+          _timer?.cancel();
+          emit(RecordingPaused(duration: current.duration, path: current.path));
+        },
       );
     }
   }
@@ -70,7 +84,14 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
       final result = await resumeRecording(const NoParams());
       result.fold(
         (failure) => emit(RecordingFailure(failure.message)),
-        (_) => emit(RecordingInProgress(duration: current.duration, path: current.path)),
+        (_) {
+          _timer?.cancel();
+          _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+            _secondsElapsed++;
+            add(RecordingDurationTickEvent(Duration(seconds: _secondsElapsed)));
+          });
+          emit(RecordingInProgress(duration: current.duration, path: current.path));
+        },
       );
     }
   }
@@ -79,6 +100,7 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     StopRecordingEvent event,
     Emitter<RecordingState> emit,
   ) async {
+    _timer?.cancel();
     Duration duration = Duration.zero;
     if (state is RecordingInProgress) {
       duration = (state as RecordingInProgress).duration;
@@ -89,7 +111,16 @@ class RecordingBloc extends Bloc<RecordingEvent, RecordingState> {
     final result = await stopRecording(const NoParams());
     result.fold(
       (failure) => emit(RecordingFailure(failure.message)),
-      (audioPath) => emit(RecordingStopped(audioPath: audioPath, duration: duration)),
+      (audioPath) {
+        _secondsElapsed = 0;
+        emit(RecordingStopped(audioPath: audioPath, duration: duration));
+      },
     );
+  }
+
+  @override
+  Future<void> close() {
+    _timer?.cancel();
+    return super.close();
   }
 }

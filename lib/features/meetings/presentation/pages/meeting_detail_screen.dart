@@ -6,6 +6,8 @@ import 'package:meet_action/features/action_items/domain/entities/action_item.da
 import 'package:meet_action/features/export_share/domain/usecases/format_whatsapp_summary.dart';
 import 'package:meet_action/features/export_share/domain/usecases/generate_meeting_pdf.dart';
 import 'package:meet_action/features/meetings/domain/entities/meeting.dart';
+import 'package:meet_action/features/meetings/domain/usecases/map_detected_participants.dart';
+import 'package:meet_action/features/meetings/presentation/widgets/assignee_mapping_dialog.dart';
 import 'package:meet_action/features/meetings/presentation/widgets/meeting_detail_view.dart';
 import 'package:meet_action/features/minutes_ai/domain/entities/meeting_minutes.dart';
 
@@ -29,11 +31,42 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
   late List<ActionItem> _actionItems;
   final GenerateMeetingPdf _generateMeetingPdf = GenerateMeetingPdf();
   final FormatWhatsAppSummary _formatWhatsAppSummary = FormatWhatsAppSummary();
+  final MapDetectedParticipants _mapDetectedParticipants = MapDetectedParticipants();
 
   @override
   void initState() {
     super.initState();
     _actionItems = List.from(widget.initialActionItems);
+  }
+
+  void _showAssigneeMappingDialog() {
+    final distinctNames = _actionItems
+        .map((ai) => ai.assigneeName)
+        .toSet()
+        .toList();
+
+    if (distinctNames.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AssigneeMappingDialog(
+        detectedNames: distinctNames,
+        onConfirm: (mapping) {
+          setState(() {
+            _actionItems = _mapDetectedParticipants(
+              actionItems: _actionItems,
+              nameMapping: mapping,
+            );
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Correos asignados y recordatorios sincronizados con éxito'),
+              backgroundColor: MeetActionTheme.statusCompleted,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _handleStatusChange(ActionItem item, ActionItemStatus newStatus) {
@@ -117,6 +150,11 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
       appBar: AppBar(
         title: const Text('Detalle de Reunión'),
         actions: [
+          IconButton(
+            tooltip: 'Asignar Correos a Participantes',
+            icon: const Icon(Icons.person_add_alt_1_rounded, color: MeetActionTheme.primaryLight),
+            onPressed: _showAssigneeMappingDialog,
+          ),
           IconButton(
             tooltip: 'Exportar PDF',
             icon: const Icon(Icons.picture_as_pdf_rounded),

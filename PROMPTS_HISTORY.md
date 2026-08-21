@@ -188,3 +188,97 @@ Ejecuta flutter analyze y flutter test para validar que todas las pruebas pasen 
   - Integración en `MeetingDetailScreen`: Botones de acción "Exportar PDF" (mediante `Printing.sharePdf`) y "WhatsApp" (mediante `SharePlus`).
   - Integración en `MeetingsHomeScreen`: Barra de búsqueda en tiempo real que filtra reuniones por título y participantes.
   - Cobertura total: 48 pruebas en verde (100% exitosas) y 0 problemas en `flutter analyze`.
+
+---
+
+### 🔹 Prompt 8: Creación y Publicación del Repositorio en GitHub
+- **Fecha y Hora:** `20 de Agosto de 2026, 00:08:58 (UTC-05:00)`
+- **Autor:** Usuario
+- **Contenido (Audio):**
+```text
+Creemos un repositorio en GitHub para este proyecto.
+```
+- **Hitos Implementados:**
+  - Inicialización del repositorio Git local con rama principal `main`.
+  - Creación del commit inicial con Clean Architecture, módulos completos de Fases 1 a 6 y 48 pruebas unitarias y de widgets.
+  - Creación del repositorio remoto público en GitHub: `https://github.com/buitrago29/MeetAction`.
+  - Push exitoso de la rama `main` al origen remoto.
+
+---
+
+### 🔹 Prompt 9: Retomar Contexto y Análisis de Sincronización Multi-Participante
+- **Fecha y Hora:** `20 de Agosto de 2026, 21:00:29 (UTC-05:00)`
+- **Autor:** Usuario
+- **Contenido:**
+```text
+retoma el contexto
+Analiza este alcance: si un grupo de personas independientes se reúne y graban la reunión, la app estaría en capacidad de enviar recordatorios, notificaciones y avisos a los integrantes de la reunión?
+explicame detalladamente con un ejemplo como funcionaría esta feature: 'Interno: Notificaciones Push (locales y FCM) para usuarios de la app.'
+```
+- **Hitos Implementados:**
+  - Recuperación y validación del estado del proyecto (48 pruebas pasando, 0 lints).
+  - Análisis de viabilidad técnica y arquitectura de comunicación para participantes independientes con y sin app.
+  - Explicación de flujos de sincronización de datos, tokens FCM y Cloud Tasks.
+
+---
+
+### 🔹 Prompt 10: Implementación de los 3 Flujos de Sincronización de Participantes (TDD)
+- **Fecha y Hora:** `20 de Agosto de 2026, 21:49:25 (UTC-05:00)`
+- **Autor:** Usuario
+- **Contenido:**
+```text
+creo que la app debe tener los 3 flujos, los tiene o dame el plan ?
+```
+- **Hitos Implementados:**
+  - Diseño y aprobación de Plan de Implementación TDD para los 3 flujos.
+  - **Dominio:**
+    - Entidad `Participant` y actualización de `Meeting` con `joinCode`.
+    - Casos de uso: `GenerateMeetingJoinCode`, `JoinMeetingByCode` y `MapDetectedParticipants`.
+  - **Presentación y BLoC:**
+    - Implementación de `ParticipantsBloc` (`AddParticipantByEmailEvent`, `GenerateJoinPinEvent`, `JoinMeetingByPinEvent`).
+    - Flujo 1: Diálogo de Sala `MeetingQrDialog` (con QR generado mediante `qr_flutter` y código PIN) y `JoinMeetingDialog`.
+    - Flujo 2: Diálogo de Planificación `PreMeetingSetupDialog` con chips de correos antes de grabar.
+    - Flujo 3: Hoja de Mapeo `AssigneeMappingDialog` integrada en `MeetingDetailScreen` para vincular nombres detectados por Gemini a correos reales.
+  - **Integración:** Actualización de `MeetingsHomeScreen`, `RecordMeetingScreen` y `main.dart`.
+  - **Pruebas y Calidad:** 16 nuevas pruebas unitarias y de widgets (Total: 64 pruebas en verde / 100% exitosas) y 0 errores en `flutter analyze`.
+
+---
+
+### 🔹 Prompt 11: Corrección de Validación de Correos y Flujo de Navegación
+- **Fecha y Hora:** `20 de Agosto de 2026, 22:24:01 (UTC-05:00)`
+- **Autor:** Usuario
+- **Contenido (Audio):**
+```text
+Fallas: Los correos se pueden digitar en cualquier formato, y debe validarse que los correos estén bien digitados.
+La segunda falla: al darle comenzar la reunión, no está haciendo nada.
+```
+- **Hitos Implementados:**
+  - **Validación Estricta de Correos con Regex:** Implementación de expresión regular RFC en `PreMeetingSetupDialog` y `AssigneeMappingDialog` con mensajes de error visuales en rojo ante formatos incorrectos o duplicados.
+  - **Auto-captura y Navegación:** Corrección del ciclo de retorno asíncrono en `_showPreMeetingSetup` (`showDialog<List<String>>`), permitiendo navegar fluidamente a `RecordMeetingScreen` al presionar *"Comenzar Grabación"*, incluyendo la auto-inclusión de correos pendientes en el campo de texto.
+  - **Pruebas Unitarias y de Widgets:** Adición de `pre_meeting_setup_dialog_test.dart` (Total: 66 pruebas en verde / 100% éxito) y 0 advertencias en `flutter analyze`.
+
+---
+
+### 🔹 Prompt 12: Zero-Friction UX (Autofocus) y Corrección de Cronómetro de Grabación
+- **Fecha y Hora:** `20 de Agosto de 2026, 22:31:51 (UTC-05:00)`
+- **Autor:** Usuario
+- **Contenido (Audio):**
+```text
+Recuerda usar las técnicas, los skills de cero fricción.
+Cuando se adiciona un correo o se edita cualquier campo, el cursor se debe posicionar dentro de la caja de texto para que la persona digite el correo o el dato que tenga que grabar.
+Esas son las skills cero fricción que globalmente deben estar ya grabadas.
+La falla al iniciar la grabación, el timer no comienza a contar los segundos. Corrige esas fallas.
+```
+- **Hitos Implementados:**
+  - **Zero-Friction UX Focus Management:**
+    - `PreMeetingSetupDialog`: Foco automático inmediato al abrir el diálogo (`autofocus: true` + `_emailFocusNode.requestFocus()`) y re-enfoque persistente tras agregar o eliminar cada correo para escribir múltiples correos consecutivamente sin tocar el mouse.
+    - `JoinMeetingDialog`: `autofocus: true` automático en el campo de PIN.
+    - `AssigneeMappingDialog`: `autofocus: true` en el primer campo de asignación de correo.
+  - **Corrección del Timer de Grabación (`RecordingBloc`):**
+    - Implementación de `Timer.periodic` reactivo dentro de `RecordingBloc` que despacha `RecordingDurationTickEvent` cada segundo transcurrido.
+    - Manejo sincronizado de pausa (`cancel`), reanudación (`resume`) y parada (`stop`), garantizando que el cronómetro avance en vivo en la pantalla de grabación.
+    - Permisos de grabación multiplataforma mediante `_audioRecorder.hasPermission()`.
+  - **Pruebas y Calidad:** 66/66 pruebas unitarias y de widgets aprobadas (100%), `flutter analyze` limpio sin advertencias.
+
+
+

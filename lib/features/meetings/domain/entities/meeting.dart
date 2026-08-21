@@ -18,6 +18,7 @@ class Meeting extends Equatable {
   final MeetingStatus status;
   final List<String> participants;
   final MeetingMinutes? minutes;
+  final String? joinCode;
 
   const Meeting({
     required this.id,
@@ -28,6 +29,7 @@ class Meeting extends Equatable {
     required this.status,
     required this.participants,
     this.minutes,
+    this.joinCode,
   });
 
   Meeting copyWith({
@@ -39,6 +41,7 @@ class Meeting extends Equatable {
     MeetingStatus? status,
     List<String>? participants,
     MeetingMinutes? minutes,
+    String? joinCode,
   }) {
     return Meeting(
       id: id ?? this.id,
@@ -49,6 +52,7 @@ class Meeting extends Equatable {
       status: status ?? this.status,
       participants: participants ?? this.participants,
       minutes: minutes ?? this.minutes,
+      joinCode: joinCode ?? this.joinCode,
     );
   }
 
@@ -62,5 +66,6 @@ class Meeting extends Equatable {
         status,
         participants,
         minutes,
+        joinCode,
       ];
 }

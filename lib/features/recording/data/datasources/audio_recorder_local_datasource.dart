@@ -1,4 +1,3 @@
-import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
 abstract class AudioRecorderLocalDataSource {
@@ -19,10 +18,7 @@ class AudioRecorderLocalDataSourceImpl implements AudioRecorderLocalDataSource {
 
   @override
   Future<bool> hasPermission() async {
-    final status = await Permission.microphone.status;
-    if (status.isGranted) return true;
-    final request = await Permission.microphone.request();
-    return request.isGranted;
+    return await _audioRecorder.hasPermission();
   }
 
   @override

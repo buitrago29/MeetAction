@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meet_action/core/theme/meet_action_theme.dart';
 import 'package:meet_action/features/action_items/domain/entities/action_item.dart';
 import 'package:meet_action/features/meetings/domain/entities/meeting.dart';
+import 'package:meet_action/features/meetings/domain/entities/participant.dart';
+import 'package:meet_action/features/meetings/presentation/bloc/participants_bloc.dart';
+import 'package:meet_action/features/meetings/presentation/bloc/participants_event.dart';
 import 'package:meet_action/features/meetings/presentation/pages/meeting_detail_screen.dart';
+import 'package:meet_action/features/meetings/presentation/widgets/join_meeting_dialog.dart';
 import 'package:meet_action/features/meetings/presentation/widgets/meeting_card.dart';
+import 'package:meet_action/features/meetings/presentation/widgets/pre_meeting_setup_dialog.dart';
 import 'package:meet_action/features/minutes_ai/domain/entities/meeting_minutes.dart';
 import 'package:meet_action/features/recording/presentation/pages/record_meeting_screen.dart';
 
@@ -98,10 +104,53 @@ class _MeetingsHomeScreenState extends State<MeetingsHomeScreen> {
         description: 'Escribir las pruebas unitarias y de integración',
         dueDate: DateTime.now().add(const Duration(days: 5)),
         priority: PriorityLevel.medium,
-        status: ActionItemStatus.pending,
+        status: ActionItemStatus.inProgress,
       ),
     ],
   };
+
+  void _showJoinMeetingDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => JoinMeetingDialog(
+        onJoin: (pin) {
+          context.read<ParticipantsBloc>().add(JoinMeetingByPinEvent(
+                code: pin,
+                participant: Participant(
+                  id: 'user-current',
+                  name: 'Usuario Actual',
+                  email: 'usuario@meetaction.com',
+                  joinedAt: DateTime.now(),
+                ),
+              ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🤝 Conectado a la reunión con PIN: $pin'),
+              backgroundColor: MeetActionTheme.primaryColor,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showPreMeetingSetup() async {
+    final emails = await showDialog<List<String>>(
+      context: context,
+      builder: (ctx) => const PreMeetingSetupDialog(),
+    );
+
+    if (emails != null && mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RecordMeetingScreen(
+            meetingTitle: 'Reunión Planificada',
+            initialParticipants: emails,
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -111,10 +160,11 @@ class _MeetingsHomeScreenState extends State<MeetingsHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalActionItems = _actionItemsMap.values
-        .expand((list) => list)
-        .where((ai) => ai.status == ActionItemStatus.pending)
-        .length;
+    final totalActionItems = _actionItemsMap.values.fold<int>(
+      0,
+      (sum, list) =>
+          sum + list.where((item) => item.status != ActionItemStatus.completed).length,
+    );
 
     final filteredMeetings = _meetings.where((m) {
       if (_searchQuery.isEmpty) return true;
@@ -167,6 +217,13 @@ class _MeetingsHomeScreenState extends State<MeetingsHomeScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner_rounded, color: MeetActionTheme.primaryLight),
+            tooltip: 'Unirse con PIN o QR',
+            onPressed: _showJoinMeetingDialog,
+          ),
+        ],
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(),
@@ -350,9 +407,62 @@ class _MeetingsHomeScreenState extends State<MeetingsHomeScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const RecordMeetingScreen(),
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: MeetActionTheme.surfaceDark,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            builder: (ctx) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Iniciar Nueva Reunión',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: MeetActionTheme.primaryColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.mic_rounded, color: MeetActionTheme.primaryColor),
+                    ),
+                    title: const Text('Grabación Rápida / En Sala', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: const Text('Genera PIN y QR para que se unan en persona', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const RecordMeetingScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(color: Colors.white10),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: MeetActionTheme.secondaryColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.mail_outline_rounded, color: MeetActionTheme.secondaryColor),
+                    ),
+                    title: const Text('Invitar Participantes por Correo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: const Text('Configura lista de emails antes de comenzar', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      _showPreMeetingSetup();
+                    },
+                  ),
+                ],
+              ),
             ),
           );
         },

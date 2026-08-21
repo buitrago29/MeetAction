@@ -1,13 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meet_action/core/theme/meet_action_theme.dart';
+import 'package:meet_action/features/meetings/presentation/bloc/participants_bloc.dart';
+import 'package:meet_action/features/meetings/presentation/bloc/participants_event.dart';
+import 'package:meet_action/features/meetings/presentation/bloc/participants_state.dart';
+import 'package:meet_action/features/meetings/presentation/widgets/meeting_qr_dialog.dart';
 import 'package:meet_action/features/recording/presentation/bloc/recording_bloc.dart';
 import 'package:meet_action/features/recording/presentation/bloc/recording_event.dart';
 import 'package:meet_action/features/recording/presentation/bloc/recording_state.dart';
 import 'package:meet_action/features/recording/presentation/widgets/waveform_visualizer.dart';
 
-class RecordMeetingScreen extends StatelessWidget {
-  const RecordMeetingScreen({super.key});
+class RecordMeetingScreen extends StatefulWidget {
+  final String meetingTitle;
+  final List<String> initialParticipants;
+
+  const RecordMeetingScreen({
+    super.key,
+    this.meetingTitle = 'Nueva Reunión',
+    this.initialParticipants = const [],
+  });
+
+  @override
+  State<RecordMeetingScreen> createState() => _RecordMeetingScreenState();
+}
+
+class _RecordMeetingScreenState extends State<RecordMeetingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<ParticipantsBloc>().add(const GenerateJoinPinEvent());
+    for (final email in widget.initialParticipants) {
+      context.read<ParticipantsBloc>().add(AddParticipantByEmailEvent(email: email));
+    }
+  }
 
   String _formatTimer(Duration duration) {
     final minutes = duration.inMinutes.toString().padLeft(2, '0');
@@ -19,8 +44,29 @@ class RecordMeetingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Grabar Reunión'),
+        title: Text(widget.meetingTitle),
         centerTitle: true,
+        actions: [
+          BlocBuilder<ParticipantsBloc, ParticipantsState>(
+            builder: (context, state) {
+              final code = state is ParticipantsLoaded ? state.joinCode : null;
+              if (code == null) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Icons.qr_code_2_rounded, color: MeetActionTheme.primaryLight),
+                tooltip: 'Código QR / PIN de la sala',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => MeetingQrDialog(
+                      joinCode: code,
+                      meetingTitle: widget.meetingTitle,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
       ),
       body: BlocConsumer<RecordingBloc, RecordingState>(
         listener: (context, state) {

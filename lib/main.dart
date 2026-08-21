@@ -3,6 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:meet_action/core/notifications/notification_service.dart';
 import 'package:meet_action/core/theme/meet_action_theme.dart';
+import 'package:meet_action/features/meetings/data/datasources/meeting_remote_datasource.dart';
+import 'package:meet_action/features/meetings/data/repositories/meeting_repository_impl.dart';
+import 'package:meet_action/features/meetings/domain/usecases/generate_meeting_join_code.dart';
+import 'package:meet_action/features/meetings/domain/usecases/join_meeting_by_code.dart';
+import 'package:meet_action/features/meetings/presentation/bloc/participants_bloc.dart';
 import 'package:meet_action/features/meetings/presentation/pages/meetings_home_screen.dart';
 import 'package:meet_action/features/recording/data/datasources/audio_recorder_local_datasource.dart';
 import 'package:meet_action/features/recording/data/repositories/audio_recorder_repository_impl.dart';
@@ -45,6 +50,12 @@ void main() async {
     calculateReminderTimes: calculateReminderTimes,
   );
 
+  // Participants & Join feature dependencies
+  final meetingDataSource = InMemoryMeetingRemoteDataSource();
+  final meetingRepository = MeetingRepositoryImpl(remoteDataSource: meetingDataSource);
+  final generateMeetingJoinCode = GenerateMeetingJoinCode();
+  final joinMeetingByCode = JoinMeetingByCode(meetingRepository);
+
   runApp(
     MeetActionApp(
       recordingBloc: RecordingBloc(
@@ -56,6 +67,10 @@ void main() async {
       reminderBloc: ReminderBloc(
         scheduleActionItemReminders: scheduleActionItemReminders,
       ),
+      participantsBloc: ParticipantsBloc(
+        generateMeetingJoinCode: generateMeetingJoinCode,
+        joinMeetingByCode: joinMeetingByCode,
+      ),
     ),
   );
 }
@@ -63,11 +78,13 @@ void main() async {
 class MeetActionApp extends StatelessWidget {
   final RecordingBloc recordingBloc;
   final ReminderBloc reminderBloc;
+  final ParticipantsBloc participantsBloc;
 
   const MeetActionApp({
     super.key,
     required this.recordingBloc,
     required this.reminderBloc,
+    required this.participantsBloc,
   });
 
   @override
@@ -76,6 +93,7 @@ class MeetActionApp extends StatelessWidget {
       providers: [
         BlocProvider<RecordingBloc>.value(value: recordingBloc),
         BlocProvider<ReminderBloc>.value(value: reminderBloc),
+        BlocProvider<ParticipantsBloc>.value(value: participantsBloc),
       ],
       child: MaterialApp(
         title: 'MeetAction',
